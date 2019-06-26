@@ -351,16 +351,23 @@ function HE_ST_Accessory(platform, device) {
             platform.addAttributeUsage('switch', device.deviceid, thisCharacteristic);
 
             if (that.device.attributes.level !== undefined || that.device.attributes.fanSpeed !== undefined) {
-                let fanLvl = that.device.attributes.fanSpeed ? fanSpeedConversion(that.device.attributes.fanSpeed, (device.command['medHighSpeed'] !== undefined)) : parseInt(that.device.attributes.level);
+                // in light of changes to .on('get'.. and .on('set'.. the fanLvl calculation is obsolete
+                let fanLvl = that.device.attributes.fanSpeed ? fanSpeedConversion(that.device.attributes.fanSpeed, (device.commands['medHighSpeed'] !== undefined)) : parseInt(that.device.attributes.level);
                 platform.log("Fan with (" + that.device.attributes.fanSpeed ? "fanSpeed" : "level" + ') | value: ' + fanLvl);
                 thisCharacteristic = that.getaddService(Service.Fanv2).getCharacteristic(Characteristic.RotationSpeed)
                     .on('get', function(callback) {
-                        callback(null, fanLvl);
+                        // Original code. Async function revers to a local block variable outside async scope 
+                        // callback(null, fanLvl); 
+                        callback(null, that.device.attributes.level);
                     })
                     .on('set', function(value, callback) {
                         if (value > 0) {
-                            let cmdStr = (that.device.attributes.fanSpeed) ? 'fanspeed' : 'setLevel';
-                            let cmdVal = (that.device.attributes.fanSpeed) ? fanSpeedConversion(value, (device.command['medHighSpeed'] !== undefined)) : parseInt(value);
+                            // the Jasco / GE z-wave fan controllers do not use words in fanSpeed, but a range of [0,1,2,3]
+                            // they also use the level attribute, so we can just use that.
+                            // let cmdStr = (that.device.attributes.fanSpeed) ? 'fanspeed' : 'setLevel';
+                            let cmdStr = 'setLevel';
+                            // let cmdVal = (that.device.attributes.fanSpeed) ? fanSpeedConversion(value, (device.commands['medHighSpeed'] !== undefined)) : parseInt(value);
+                            let cmdVal = parseInt(value);
                             platform.log("Fan Command (Str: " + cmdStr + ') | value: (' + cmdVal + ')');
                             platform.api.runCommand(callback, device.deviceid, cmdStr, {
                                 value1: cmdVal
